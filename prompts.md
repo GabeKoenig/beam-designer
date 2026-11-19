@@ -1,0 +1,23 @@
+# Prompt log
+
+- Asked: Set up the project folders and root files for a single-file web app, document the layout and file-placement rule, and do not build the app.
+- Changed: Created the root scaffold, four numbered folders with README files, and this prompt log. Left the app unimplemented.
+- Worked: Yes; verified the requested files and folders are present.
+- Asked: Review the initial Beam Designer specification and suggest recommendations, including real beam properties; do not write code.
+- Changed: Reviewed the specification and identified scope, design-basis, section-data, and validation recommendations. No app code or specification text changed.
+- Worked: Yes; provided recommendations without building the app.
+- Asked: Make the recommended changes to the initial specification.
+- Changed: Rewrote `spec.md` to define a steel W-shape MVP, analysis and ASD assumptions, sourced section properties, visible limitations, and additional validation cases. No app code or data files were created.
+- Worked: Yes; the revised specification now records the recommended scope and assumptions.
+- Asked: Find reference data to compare with the app and test whether it is implemented correctly.
+- Changed: Added four hand-calculation benchmark cases, a rounded W12x26 property reference, and the official AISC Shapes Database v16.0 source link in `02_validation/reference-cases.md`; linked it from `spec.md`.
+- Worked: Yes; independently calculated the expected reactions, moments, stresses, and deflections. The app itself is not implemented yet, so runtime comparison remains for later.
+- Asked: Identify what else is needed before creating the app.
+- Changed: Assessed remaining implementation decisions and recommended defaults; no app code changed.
+- Worked: Yes; outlined the decisions and what can proceed from the current specification.
+- Asked: Build the single-file beam analysis app.
+- Changed: Implemented the app in `index.html` with W-shape catalog loading, beam/load inputs, reactions, diagrams, elastic deflection, and limited ASD flexural and deflection checks. Added the 289-section W-shape catalog, documented its source, and recorded a W12x26 ASD capacity benchmark. Fixed mobile horizontal overflow by constraining the results grid track.
+- Worked: Yes; browser checks matched the reference cases, the W12x26 check reports 92.81 kip-ft allowable moment and 53.9% utilization, a noncompact section reports “not checked,” invalid load bounds show an error and mark results stale, and the 390 px mobile layout has no horizontal page overflow.
+- Asked: Automatically commit project changes from now on, and publish the website publicly.
+- Changed: Added a persistent project rule to commit validated project changes while excluding unrelated workspace files. Checked Git configuration; no remote is configured.
+- Worked: Auto-commit preference is recorded. Public publishing is blocked until the target public GitHub repository is specified.
