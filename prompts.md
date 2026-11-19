@@ -19,5 +19,5 @@
 - Changed: Implemented the app in `index.html` with W-shape catalog loading, beam/load inputs, reactions, diagrams, elastic deflection, and limited ASD flexural and deflection checks. Added the 289-section W-shape catalog, documented its source, and recorded a W12x26 ASD capacity benchmark. Fixed mobile horizontal overflow by constraining the results grid track.
 - Worked: Yes; browser checks matched the reference cases, the W12x26 check reports 92.81 kip-ft allowable moment and 53.9% utilization, a noncompact section reports “not checked,” invalid load bounds show an error and mark results stale, and the 390 px mobile layout has no horizontal page overflow.
 - Asked: Automatically commit project changes from now on, and publish the website publicly.
-- Changed: Added a persistent project rule to commit validated project changes while excluding unrelated workspace files. Checked Git configuration; no remote is configured.
-- Worked: Auto-commit preference is recorded. Public publishing is blocked until the target public GitHub repository is specified.
+- Changed: Added a persistent project rule to commit validated project changes while excluding unrelated workspace files. Committed the app project locally as `bf01b7e`; no Git remote is configured.
+- Worked: Auto-commit preference is recorded and the project is committed locally. Public publishing is blocked until the target public GitHub repository is specified.
