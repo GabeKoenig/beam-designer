@@ -1,1 +1,2 @@
 - Asked: Create a top-level AGENTS.md with the two requested instructions, then commit. Changed: Added AGENTS.md and this prompts.md entry. Worked: Yes; ready to commit.
+- Asked: Update spec.md to describe a Python desktop app using Tkinter, without building it. Changed: Added a desktop-application section specifying Python, Tkinter, in-window inputs and outputs, and separation of calculations from the interface. Worked: Yes; documentation updated only.
