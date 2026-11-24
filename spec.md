@@ -98,6 +98,13 @@ section, material, and deflection limit, then view the analysis outputs and
 diagrams in the app window. Keep calculations separate from the Tkinter
 interface so they can be maintained and validated independently.
 
+## Design files
+
+Provide a **File** menu with **Save** and **Open** commands. Save the support
+condition, span, selected W-shape, deflection limit, and all point and uniform
+loads to a JSON design file. Open a saved design and restore those inputs so
+the user can review or continue the analysis.
+
 ## Validation
 
 Use the inputs, assumptions, and expected results in

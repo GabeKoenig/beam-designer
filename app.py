@@ -6,7 +6,7 @@ import json
 import math
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
+from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from analysis import analyze
@@ -187,6 +187,7 @@ class BeamDesigner:
         self.catalog_source = "AISC Shapes Database v16.0 · U.S. customary units"
         self.load_rows: list[LoadRow] = []
         self.result: dict[str, Any] | None = None
+        self.current_file: Path | None = None
         self._configure_style()
         self._build()
         self._load_data()
@@ -211,6 +212,13 @@ class BeamDesigner:
         style.configure("TCombobox", padding=6)
 
     def _build(self) -> None:
+        menu_bar = tk.Menu(self.root)
+        file_menu = tk.Menu(menu_bar, tearoff=False)
+        file_menu.add_command(label="Save", command=self.save_design)
+        file_menu.add_command(label="Open", command=self.open_design)
+        menu_bar.add_cascade(label="File", menu=file_menu)
+        self.root.configure(menu=menu_bar)
+
         header = tk.Frame(self.root, bg=CANVAS)
         header.pack(fill="x", padx=24, pady=(18, 10))
         brand = tk.Frame(header, bg=NAVY, width=42, height=42)
@@ -457,6 +465,7 @@ class BeamDesigner:
             self.error_label.configure(text=f"Could not load the AISC section or material data: {exc}")
 
     def restore_example(self) -> None:
+        self.current_file = None
         self.support_var.set("Simply supported")
         self.span_var.set("20")
         self.limit_var.set("L/360")
@@ -468,6 +477,163 @@ class BeamDesigner:
             self.section_var.set("W12x26")
             self.error_label.configure(text="")
             self.run_analysis()
+
+    def _design_payload(self) -> dict[str, Any]:
+        try:
+            span_ft = float(self.span_var.get().strip())
+        except ValueError as exc:
+            raise ValueError("Enter a valid span before saving.") from exc
+        if not math.isfinite(span_ft) or not 0 < span_ft <= 500:
+            raise ValueError("The span must be greater than 0 and no more than 500 ft.")
+        section = next((item for item in self.sections if item["label"].replace("X", "x") == self.section_var.get()), None)
+        if section is None:
+            raise ValueError("Select a valid W-shape before saving.")
+
+        if self.limit_var.get() == "Custom":
+            try:
+                inches = float(self.custom_limit_var.get().strip())
+            except ValueError as exc:
+                raise ValueError("Enter a valid custom deflection limit before saving.") from exc
+            if not math.isfinite(inches) or inches <= 0:
+                raise ValueError("The custom deflection limit must be greater than 0 in.")
+            limit = {"mode": "custom", "inches": inches}
+        else:
+            limit = {"mode": "ratio", "denominator": int(self.limit_var.get().split("/")[1])}
+
+        loads = []
+        for row in self.load_rows:
+            parsed = row.values_for_analysis(span_ft)
+            if parsed["kind"] == "point":
+                loads.append({"type": "point", "magnitude": parsed["magnitude"], "position_ft": parsed["position"], "direction": str(parsed["direction"]).lower()})
+            else:
+                loads.append({"type": "uniform", "magnitude": parsed["magnitude"], "start_ft": parsed["start"], "end_ft": parsed["end"], "direction": str(parsed["direction"]).lower()})
+
+        return {
+            "format": "beam-designer",
+            "version": 1,
+            "support": "cantilever" if self.support_var.get() == "Cantilever" else "simple",
+            "span_ft": span_ft,
+            "section": section["label"],
+            "deflection_limit": limit,
+            "loads": loads,
+        }
+
+    def save_design(self) -> None:
+        try:
+            payload = self._design_payload()
+        except ValueError as exc:
+            messagebox.showerror("Cannot save design", str(exc), parent=self.root)
+            return
+        path = self.current_file
+        if path is None:
+            chosen = filedialog.asksaveasfilename(
+                parent=self.root,
+                title="Save beam design",
+                defaultextension=".beam.json",
+                filetypes=(("Beam design", "*.beam.json"), ("JSON file", "*.json")),
+            )
+            if not chosen:
+                return
+            path = Path(chosen)
+        try:
+            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        except OSError as exc:
+            messagebox.showerror("Cannot save design", str(exc), parent=self.root)
+            return
+        self.current_file = path
+        self.status_label.configure(text=f"SAVED · {path.name}", bg="#f2faf6", fg=GREEN)
+
+    @staticmethod
+    def _finite_file_number(value: Any, label: str) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"The design file has an invalid {label}.")
+        return float(value)
+
+    def _apply_design_payload(self, payload: Any) -> None:
+        if not isinstance(payload, dict) or payload.get("format") != "beam-designer" or payload.get("version") != 1:
+            raise ValueError("This is not a supported Beam Designer file.")
+        support = payload.get("support")
+        if support not in ("simple", "cantilever"):
+            raise ValueError("The design file has an invalid support condition.")
+        span_ft = self._finite_file_number(payload.get("span_ft"), "span")
+        if not 0 < span_ft <= 500:
+            raise ValueError("The design file span must be greater than 0 and no more than 500 ft.")
+        section_label = payload.get("section")
+        section = next((item for item in self.sections if item["label"] == section_label), None)
+        if section is None:
+            raise ValueError("The design file references a W-shape that is not in the loaded catalog.")
+
+        limit = payload.get("deflection_limit")
+        if not isinstance(limit, dict):
+            raise ValueError("The design file has an invalid deflection limit.")
+        if limit.get("mode") == "ratio" and limit.get("denominator") in (240, 360, 480):
+            limit_choice = f"L/{limit['denominator']}"
+            custom_limit = None
+        elif limit.get("mode") == "custom":
+            custom_limit = self._finite_file_number(limit.get("inches"), "custom deflection limit")
+            if custom_limit <= 0:
+                raise ValueError("The custom deflection limit must be greater than 0 in.")
+            limit_choice = "Custom"
+        else:
+            raise ValueError("The design file has an unsupported deflection limit.")
+
+        file_loads = payload.get("loads")
+        if not isinstance(file_loads, list):
+            raise ValueError("The design file has an invalid load list.")
+        parsed_loads: list[dict[str, Any]] = []
+        for load in file_loads:
+            if not isinstance(load, dict) or load.get("type") not in ("point", "uniform") or load.get("direction") not in ("up", "down"):
+                raise ValueError("The design file contains an invalid load.")
+            magnitude = self._finite_file_number(load.get("magnitude"), "load magnitude")
+            if magnitude < 0:
+                raise ValueError("Load magnitudes in a design file must not be negative.")
+            item: dict[str, Any] = {"magnitude": magnitude, "direction": load["direction"].capitalize()}
+            if load["type"] == "point":
+                position = self._finite_file_number(load.get("position_ft"), "point-load position")
+                if not 0 <= position <= span_ft:
+                    raise ValueError("A point load in the design file is outside the beam span.")
+                item.update({"kind": "point", "position": position})
+            else:
+                start = self._finite_file_number(load.get("start_ft"), "uniform-load start")
+                end = self._finite_file_number(load.get("end_ft"), "uniform-load end")
+                if start < 0 or end > span_ft or end <= start:
+                    raise ValueError("A uniform load in the design file must satisfy 0 ≤ start < end ≤ span.")
+                item.update({"kind": "uniform", "start": start, "end": end})
+            parsed_loads.append(item)
+
+        self.support_var.set("Cantilever" if support == "cantilever" else "Simply supported")
+        self.span_var.set(f"{span_ft:g}")
+        self.section_var.set(section["label"].replace("X", "x"))
+        self.limit_var.set(limit_choice)
+        if custom_limit is not None:
+            self.custom_limit_var.set(f"{custom_limit:g}")
+        for row in self.load_rows[:]:
+            row.remove()
+        for load in parsed_loads:
+            self.add_load(load.pop("kind"), load)
+
+    def open_design(self) -> None:
+        chosen = filedialog.askopenfilename(
+            parent=self.root,
+            title="Open beam design",
+            filetypes=(("Beam design", "*.beam.json"), ("JSON file", "*.json"), ("All files", "*")),
+        )
+        if not chosen:
+            return
+        path = Path(chosen)
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self._apply_design_payload(payload)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            messagebox.showerror("Cannot open design", str(exc), parent=self.root)
+            return
+        self.current_file = path
+        if self.load_rows:
+            self.run_analysis()
+        else:
+            self.result = None
+            self._clear_results()
+            self.status_label.configure(text=f"OPENED · {path.name}", bg="#f2faf6", fg=GREEN)
 
     def run_analysis(self) -> None:
         try:
