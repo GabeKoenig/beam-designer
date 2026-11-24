@@ -55,7 +55,8 @@ class ScrollableFrame(ttk.Frame):
         while widget is not None and widget is not self:
             widget = getattr(widget, "master", None)
         if widget is self:
-            self.canvas.yview_scroll(int(-event.delta / 120), "units")
+            steps = int(-event.delta / 120) if abs(event.delta) >= 120 else (-1 if event.delta > 0 else 1)
+            self.canvas.yview_scroll(steps, "units")
 
 
 class LoadRow:
@@ -265,7 +266,8 @@ class BeamDesigner:
         self.support_var = tk.StringVar(value="Simply supported")
         grid = tk.Frame(inner, bg=PAPER)
         grid.pack(fill="x")
-        grid.columnconfigure((0, 1), weight=1, uniform="fields")
+        for col in range(2):
+            grid.columnconfigure(col, weight=1, uniform="fields")
         self._field(grid, "Support condition", self.support_var, ("Simply supported", "Cantilever")).grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 10))
         self.span_var = tk.StringVar(value="20")
         self._field(grid, "Span · ft", self.span_var).grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 10))
@@ -367,7 +369,8 @@ class BeamDesigner:
 
         checks = tk.Frame(parent, bg=CANVAS)
         checks.pack(fill="x", padx=(8, 0), pady=(0, 8))
-        checks.columnconfigure((0, 1), weight=1, uniform="check")
+        for col in range(2):
+            checks.columnconfigure(col, weight=1, uniform="check")
         self.strength_check = self._check_card(checks, "FLEXURAL STRENGTH · ASD")
         self.strength_check.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         self.deflection_check = self._check_card(checks, "SERVICE DEFLECTION")
@@ -387,7 +390,8 @@ class BeamDesigner:
         self._card_heading(charts_card, "Analysis diagrams", "Positive sagging moment · downward deflection positive")
         charts = tk.Frame(charts_card, bg=PAPER)
         charts.pack(fill="x", padx=8, pady=(0, 10))
-        charts.columnconfigure((0, 1), weight=1, uniform="charts")
+        for col in range(2):
+            charts.columnconfigure(col, weight=1, uniform="charts")
         self.charts: dict[str, Chart] = {}
         for index, (key, title, units, color) in enumerate((
             ("shear", "Shear force", "kip", TEAL),
