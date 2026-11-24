@@ -235,8 +235,7 @@ class BeamDesigner:
         self.results_scroll = ScrollableFrame(panes)
         panes.add(self.setup_scroll, weight=0)
         panes.add(self.results_scroll, weight=1)
-        panes.paneconfigure(self.setup_scroll, minsize=340, width=385)
-        panes.paneconfigure(self.results_scroll, minsize=600)
+        self.root.after(100, lambda: panes.sashpos(0, 405))
         self._build_setup(self.setup_scroll.inner)
         self._build_results(self.results_scroll.inner)
 
@@ -330,10 +329,12 @@ class BeamDesigner:
     def _build_results(self, parent: tk.Misc) -> None:
         top = tk.Frame(parent, bg=CANVAS)
         top.pack(fill="x", padx=(8, 0), pady=(0, 8))
-        tk.Label(top, text="ANALYSIS RESULTS", bg=CANVAS, fg=TEAL, font=("Helvetica", 9, "bold")).pack(anchor="w")
-        tk.Label(top, text="Beam overview", bg=CANVAS, fg=NAVY, font=("Helvetica", 17, "bold")).pack(anchor="w", pady=(2, 0))
+        title_stack = tk.Frame(top, bg=CANVAS)
+        title_stack.pack(side="left", anchor="w")
+        tk.Label(title_stack, text="ANALYSIS RESULTS", bg=CANVAS, fg=TEAL, font=("Helvetica", 9, "bold")).pack(anchor="w")
+        tk.Label(title_stack, text="Beam overview", bg=CANVAS, fg=NAVY, font=("Helvetica", 17, "bold")).pack(anchor="w", pady=(2, 0))
         self.status_label = tk.Label(top, text="READY", bg="#f2faf6", fg=GREEN, padx=9, pady=4, font=("Helvetica", 8, "bold"))
-        self.status_label.pack(anchor="ne", pady=(-30, 0))
+        self.status_label.pack(side="right", anchor="n", pady=(8, 0))
 
         self.summary_card = self._card(parent)
         self.summary_card.pack(fill="x", padx=(8, 0), pady=(0, 8))
@@ -371,11 +372,11 @@ class BeamDesigner:
         checks.pack(fill="x", padx=(8, 0), pady=(0, 8))
         for col in range(2):
             checks.columnconfigure(col, weight=1, uniform="check")
-        self.strength_check = self._check_card(checks, "FLEXURAL STRENGTH · ASD")
+        self.strength_check, strength_values = self._check_card(checks, "FLEXURAL STRENGTH · ASD")
         self.strength_check.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        self.deflection_check = self._check_card(checks, "SERVICE DEFLECTION")
+        self.deflection_check, deflection_values = self._check_card(checks, "SERVICE DEFLECTION")
         self.deflection_check.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        self.check_values: dict[str, tuple[tk.Label, tk.Label]] = {"strength": self.strength_check, "deflection": self.deflection_check}
+        self.check_values: dict[str, tuple[tk.Label, tk.Label]] = {"strength": strength_values, "deflection": deflection_values}
         tk.Label(parent, text="A992 steel, E = 29,000 ksi. Strength follows the limited ASD screen in the spec and assumes continuous lateral bracing. The estimated web slenderness uses (d − 2tf)/tw because clear web depth is not in the selected catalog fields. Lateral-torsional buckling is not checked.", bg=CANVAS, fg=MUTED, wraplength=950, justify="left", font=("Helvetica", 8)).pack(fill="x", padx=(10, 0), pady=(0, 12))
 
         beam_card = self._card(parent)
@@ -407,14 +408,14 @@ class BeamDesigner:
             self.charts[key] = chart
         tk.Label(parent, text="Service-level loading only. Include the applicable loads yourself; this app does not generate combinations or certify code compliance.", bg=CANVAS, fg=MUTED, font=("Helvetica", 8)).pack(fill="x", padx=(10, 0), pady=(2, 14))
 
-    def _check_card(self, master: tk.Misc, title: str) -> tuple[tk.Label, tk.Label]:
+    def _check_card(self, master: tk.Misc, title: str) -> tuple[tk.Frame, tuple[tk.Label, tk.Label]]:
         card = tk.Frame(master, bg=PAPER, highlightbackground=LINE, highlightthickness=1, padx=12, pady=11)
         tk.Label(card, text=title, bg=PAPER, fg=NAVY, font=("Helvetica", 9, "bold")).pack(anchor="w")
         detail = tk.Label(card, text="Awaiting analysis", bg=PAPER, fg=MUTED, wraplength=300, justify="left", font=("Helvetica", 8))
         detail.pack(anchor="w", pady=(5, 8))
         status = tk.Label(card, text="—", bg=PAPER, fg=GREEN, font=("Helvetica", 10, "bold"))
         status.pack(anchor="e")
-        return status, detail
+        return card, (status, detail)
 
     def _card_heading(self, card: tk.Frame, title: str, subtitle: str) -> None:
         head = tk.Frame(card, bg=PAPER)
