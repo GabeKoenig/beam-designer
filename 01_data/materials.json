@@ -1,0 +1,11 @@
+{
+  "source": "AISC Specification for Structural Steel Buildings, ANSI/AISC 360-22; ASTM A992/A992M",
+  "units": "ksi",
+  "materials": [
+    {
+      "grade": "A992",
+      "Fy": 50.0,
+      "E": 29000.0
+    }
+  ]
+}
