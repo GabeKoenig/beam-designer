@@ -274,6 +274,7 @@ class BeamDesigner:
         self.section_var = tk.StringVar()
         self.section_box = ttk.Combobox(inner, textvariable=self.section_var, state="disabled")
         self.section_box.pack(fill="x", pady=(0, 7))
+        self.section_box.bind("<<ComboboxSelected>>", lambda _event: self._draw_section())
         tk.Label(inner, text="A992 steel · Fy = 50 ksi · E = 29,000 ksi", bg=PAPER, fg=MUTED, font=("Helvetica", 9)).pack(anchor="w")
 
         self._divider(inner)
@@ -381,10 +382,20 @@ class BeamDesigner:
 
         beam_card = self._card(parent)
         beam_card.pack(fill="x", padx=(8, 0), pady=(0, 8))
-        self._card_heading(beam_card, "Beam & applied loads", "Reactions and load positions")
-        self.beam_canvas = tk.Canvas(beam_card, height=170, bg=PAPER, highlightthickness=0)
-        self.beam_canvas.pack(fill="x", padx=10, pady=(0, 10))
+        self._card_heading(beam_card, "Beam & section views", "Applied loads, reactions, and selected W-shape dimensions")
+        visuals = tk.Frame(beam_card, bg=PAPER)
+        visuals.pack(fill="x", padx=10, pady=(0, 10))
+        visuals.columnconfigure(0, weight=3)
+        visuals.columnconfigure(1, weight=1)
+        self.beam_canvas = tk.Canvas(visuals, height=170, bg=PAPER, highlightthickness=0)
+        self.beam_canvas.grid(row=0, column=0, sticky="nsew", padx=(0, 7))
         self.beam_canvas.bind("<Configure>", self._redraw_all)
+        section_panel = tk.Frame(visuals, bg="#fbfcfc", highlightbackground="#e5ebed", highlightthickness=1)
+        section_panel.grid(row=0, column=1, sticky="nsew")
+        tk.Label(section_panel, text="W CROSS-SECTION", bg="#fbfcfc", fg=NAVY, font=("Helvetica", 8, "bold")).pack(anchor="w", padx=8, pady=(7, 0))
+        self.section_canvas = tk.Canvas(section_panel, height=145, bg="#fbfcfc", highlightthickness=0)
+        self.section_canvas.pack(fill="both", expand=True)
+        self.section_canvas.bind("<Configure>", self._draw_section)
 
         charts_card = self._card(parent)
         charts_card.pack(fill="x", padx=(8, 0), pady=(0, 8))
@@ -439,6 +450,7 @@ class BeamDesigner:
             self.section_var.set("W12x26" if "W12x26" in labels else labels[0])
             self.summary_card.winfo_children()[-1].configure(text=f"Section properties: {self.catalog_source} · U.S. customary units")
             self.status_label.configure(text=f"{len(rows)} W-SHAPES LOADED", bg="#f2faf6", fg=GREEN)
+            self._draw_section()
             self.restore_example()
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
             self.status_label.configure(text="DATA UNAVAILABLE", bg="#fff4f3", fg=RED)
@@ -543,8 +555,49 @@ class BeamDesigner:
 
     def _redraw_all(self, _event: tk.Event | None = None) -> None:
         self._draw_beam()
+        self._draw_section()
         for chart in getattr(self, "charts", {}).values():
             chart.redraw()
+
+    def _draw_section(self, _event: tk.Event | None = None) -> None:
+        if not hasattr(self, "section_canvas"):
+            return
+        canvas = self.section_canvas
+        canvas.delete("all")
+        section = next((shape for shape in self.sections if shape["label"].replace("X", "x") == self.section_var.get()), None)
+        width, height = max(canvas.winfo_width(), 190), max(canvas.winfo_height(), 145)
+        if section is None:
+            canvas.create_text(width / 2, height / 2, text="Select a W-shape", fill=MUTED, font=("Helvetica", 8))
+            return
+
+        depth = section["depth"]
+        flange_width = section["flangeWidth"]
+        web = section["webThickness"]
+        flange = section["flangeThickness"]
+        scale = min((width * 0.43) / flange_width, (height * 0.61) / depth)
+        shape_width, shape_height = flange_width * scale, depth * scale
+        center_x = width * 0.52
+        top, bottom = 12, 12 + shape_height
+        left, right = center_x - shape_width / 2, center_x + shape_width / 2
+        web_left, web_right = center_x - web * scale / 2, center_x + web * scale / 2
+        top_inner, bottom_inner = top + flange * scale, bottom - flange * scale
+        profile = [
+            left, top, right, top, right, top_inner, web_right, top_inner,
+            web_right, bottom_inner, right, bottom_inner, right, bottom,
+            left, bottom, left, bottom_inner, web_left, bottom_inner,
+            web_left, top_inner, left, top_inner,
+        ]
+        canvas.create_polygon(*profile, fill="#dce9eb", outline=NAVY, width=2, joinstyle=tk.ROUND)
+
+        dim_x = max(20, left - 22)
+        canvas.create_line(dim_x, top, dim_x, bottom, fill=MUTED, arrow=tk.BOTH, width=1)
+        canvas.create_text(dim_x - 4, (top + bottom) / 2, text=f"d {fmt(depth, 2)} in", anchor="e", fill=MUTED, font=("Helvetica", 7))
+        width_y = min(height - 24, bottom + 13)
+        canvas.create_line(left, width_y, right, width_y, fill=MUTED, arrow=tk.BOTH, width=1)
+        canvas.create_text(center_x, height - 5, text=f"bf {fmt(flange_width, 2)} in", anchor="s", fill=MUTED, font=("Helvetica", 7))
+        callout_x = min(width - 3, right + 8)
+        canvas.create_text(callout_x, top_inner, text=f"tf {fmt(flange, 3)}", anchor="w", fill=MUTED, font=("Helvetica", 7))
+        canvas.create_text(callout_x, (top_inner + bottom_inner) / 2, text=f"tw {fmt(web, 3)}", anchor="w", fill=MUTED, font=("Helvetica", 7))
 
     def _draw_beam(self) -> None:
         if not hasattr(self, "beam_canvas"):
