@@ -119,6 +119,7 @@ def analyze(
     for i in range(1, scan_count + 1):
         x = span_in * i / scan_count
         slope = slope_at(x)
+        deflection_candidates.append(x)
         if previous_slope * slope < 0:
             deflection_candidates.append(_bisect(slope_at, previous_x, x))
         previous_x, previous_slope = x, slope
