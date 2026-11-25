@@ -11,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from analysis import analyze
+from pdf_export import export_calculation_sheet as write_calculation_sheet
 
 
 ROOT = Path(__file__).resolve().parent
@@ -347,6 +348,8 @@ class BeamDesigner:
         actions.pack(side="right", anchor="n", pady=(8, 0))
         self.export_button = ttk.Button(actions, text="Export results CSV", command=self.export_results, state="disabled")
         self.export_button.pack(side="left", padx=(0, 8))
+        self.pdf_button = ttk.Button(actions, text="Calculation sheet PDF", command=self.export_pdf, state="disabled")
+        self.pdf_button.pack(side="left", padx=(0, 8))
         self.status_label = tk.Label(actions, text="READY", bg="#f2faf6", fg=GREEN, padx=9, pady=4, font=("Helvetica", 8, "bold"))
         self.status_label.pack(side="left")
 
@@ -673,12 +676,14 @@ class BeamDesigner:
             self.error_label.configure(text="")
             self.status_label.configure(text="ANALYSIS COMPLETE", bg="#f2faf6", fg=GREEN)
             self.export_button.configure(state="normal")
+            self.pdf_button.configure(state="normal")
             self._render_results(section, span_ft)
             self._redraw_all()
         except (ValueError, OverflowError, ZeroDivisionError) as exc:
             self.result = None
             self.status_label.configure(text="RESULTS STALE", bg="#fff4f3", fg=RED)
             self.export_button.configure(state="disabled")
+            self.pdf_button.configure(state="disabled")
             self.error_label.configure(text=str(exc))
             self._clear_results()
 
@@ -713,6 +718,29 @@ class BeamDesigner:
             messagebox.showerror("Cannot export results", str(exc), parent=self.root)
             return
         self.status_label.configure(text=f"CSV EXPORTED · {Path(chosen).name}", bg="#f2faf6", fg=GREEN)
+
+    def export_pdf(self) -> None:
+        self.run_analysis()
+        if not self.result:
+            return
+        default_name = f"{self.current_file.stem}_calculation_sheet.pdf" if self.current_file else "beam_calculation_sheet.pdf"
+        chosen = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Save calculation sheet PDF",
+            initialfile=default_name,
+            defaultextension=".pdf",
+            filetypes=(("PDF document", "*.pdf"), ("All files", "*")),
+        )
+        if not chosen:
+            return
+        try:
+            design = self._design_payload()
+            section = next(item for item in self.sections if item["label"].replace("X", "x") == self.section_var.get())
+            write_calculation_sheet(chosen, design, section, self.material, self.result, self.catalog_source)
+        except (OSError, ValueError, StopIteration) as exc:
+            messagebox.showerror("Cannot create calculation sheet", str(exc), parent=self.root)
+            return
+        self.status_label.configure(text=f"PDF SAVED · {Path(chosen).name}", bg="#f2faf6", fg=GREEN)
 
     def _render_results(self, section: dict[str, Any], span_ft: float) -> None:
         assert self.result is not None
@@ -750,6 +778,8 @@ class BeamDesigner:
     def _clear_results(self) -> None:
         if hasattr(self, "export_button"):
             self.export_button.configure(state="disabled")
+        if hasattr(self, "pdf_button"):
+            self.pdf_button.configure(state="disabled")
         for value, detail in self.metric_values.values():
             value.configure(text="—")
             detail.configure(text="")

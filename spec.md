@@ -86,6 +86,9 @@ not include clear web depth. Show this limitation alongside the results.
 - An Excel-friendly CSV export with one row per analysis position and columns
   for x (ft), shear V (kip), moment M (kip-ft), and deflection (in; downward
   positive).
+- A calculation-sheet PDF with the inputs first, followed by the results,
+  checks, assumptions, limitations, and beam, shear, moment, and deflection
+  diagrams. Label the PDF as preliminary educational analysis.
 
 ## Look and feel
 
