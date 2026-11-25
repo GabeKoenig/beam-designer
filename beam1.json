@@ -1,0 +1,20 @@
+{
+  "format": "beam-designer",
+  "version": 1,
+  "support": "simple",
+  "span_ft": 20.0,
+  "section": "W12X26",
+  "deflection_limit": {
+    "mode": "ratio",
+    "denominator": 360
+  },
+  "loads": [
+    {
+      "type": "uniform",
+      "magnitude": 1.0,
+      "start_ft": 0.0,
+      "end_ft": 20.0,
+      "direction": "down"
+    }
+  ]
+}
