@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import csv
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -342,8 +343,12 @@ class BeamDesigner:
         title_stack.pack(side="left", anchor="w")
         tk.Label(title_stack, text="ANALYSIS RESULTS", bg=CANVAS, fg=TEAL, font=("Helvetica", 9, "bold")).pack(anchor="w")
         tk.Label(title_stack, text="Beam overview", bg=CANVAS, fg=NAVY, font=("Helvetica", 17, "bold")).pack(anchor="w", pady=(2, 0))
-        self.status_label = tk.Label(top, text="READY", bg="#f2faf6", fg=GREEN, padx=9, pady=4, font=("Helvetica", 8, "bold"))
-        self.status_label.pack(side="right", anchor="n", pady=(8, 0))
+        actions = tk.Frame(top, bg=CANVAS)
+        actions.pack(side="right", anchor="n", pady=(8, 0))
+        self.export_button = ttk.Button(actions, text="Export results CSV", command=self.export_results, state="disabled")
+        self.export_button.pack(side="left", padx=(0, 8))
+        self.status_label = tk.Label(actions, text="READY", bg="#f2faf6", fg=GREEN, padx=9, pady=4, font=("Helvetica", 8, "bold"))
+        self.status_label.pack(side="left")
 
         self.summary_card = self._card(parent)
         self.summary_card.pack(fill="x", padx=(8, 0), pady=(0, 8))
@@ -667,13 +672,47 @@ class BeamDesigner:
             self.result = analyze(span_ft, support, section, points, uniforms, self.material["E"], self.material["Fy"], limit_ratio, custom_limit)
             self.error_label.configure(text="")
             self.status_label.configure(text="ANALYSIS COMPLETE", bg="#f2faf6", fg=GREEN)
+            self.export_button.configure(state="normal")
             self._render_results(section, span_ft)
             self._redraw_all()
         except (ValueError, OverflowError, ZeroDivisionError) as exc:
             self.result = None
             self.status_label.configure(text="RESULTS STALE", bg="#fff4f3", fg=RED)
+            self.export_button.configure(state="disabled")
             self.error_label.configure(text=str(exc))
             self._clear_results()
+
+    def export_results(self) -> None:
+        self.run_analysis()
+        if not self.result:
+            return
+        default_name = f"{self.current_file.stem}_results.csv" if self.current_file else "beam_results.csv"
+        chosen = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Export analysis results",
+            initialfile=default_name,
+            defaultextension=".csv",
+            filetypes=(("CSV file", "*.csv"), ("All files", "*")),
+        )
+        if not chosen:
+            return
+        diagrams = self.result["diagrams"]
+        shear, moment, deflection = diagrams["shear"], diagrams["moment"], diagrams["deflection"]
+        if not (len(shear) == len(moment) == len(deflection)):
+            messagebox.showerror("Cannot export results", "The analysis diagram data do not align.", parent=self.root)
+            return
+        try:
+            with open(chosen, "w", encoding="utf-8-sig", newline="") as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(("x (ft)", "V (kip)", "M (kip-ft)", "Deflection (in; down +)"))
+                for (x_s, v), (x_m, m), (x_d, d) in zip(shear, moment, deflection):
+                    if not (math.isclose(x_s, x_m, abs_tol=1e-9) and math.isclose(x_s, x_d, abs_tol=1e-9)):
+                        raise ValueError("The analysis diagram positions do not align.")
+                    writer.writerow((x_s / 12, v, m, d))
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Cannot export results", str(exc), parent=self.root)
+            return
+        self.status_label.configure(text=f"CSV EXPORTED · {Path(chosen).name}", bg="#f2faf6", fg=GREEN)
 
     def _render_results(self, section: dict[str, Any], span_ft: float) -> None:
         assert self.result is not None
@@ -709,6 +748,8 @@ class BeamDesigner:
         def_detail.configure(text=f"Maximum service deflection {fmt(abs(dp['value']), 3)} in · limit {fmt(r['deflection_limit_in'], 3)} in · L = {fmt(span_ft)} ft")
 
     def _clear_results(self) -> None:
+        if hasattr(self, "export_button"):
+            self.export_button.configure(state="disabled")
         for value, detail in self.metric_values.values():
             value.configure(text="—")
             detail.configure(text="")

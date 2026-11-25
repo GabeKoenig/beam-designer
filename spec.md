@@ -83,6 +83,9 @@ not include clear web depth. Show this limitation alongside the results.
 - Reactions and maximum moment and deflection values and locations.
 - Separate flexural-strength and deflection results, including the assumptions
   and limitations used for each.
+- An Excel-friendly CSV export with one row per analysis position and columns
+  for x (ft), shear V (kip), moment M (kip-ft), and deflection (in; downward
+  positive).
 
 ## Look and feel
 
